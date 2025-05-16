@@ -877,6 +877,18 @@ msgstr ""
 msgid "Select or enter DNS server address"
 msgstr ""
 
+msgid "DNS bind interface"
+msgstr ""
+
+msgid "Interface for access to DNS server"
+msgstr ""
+
+msgid "Interface for DNS"
+msgstr ""
+
+msgid "Select the interface to access the DNS server"
+msgstr ""
+
 msgid "DNS Rewrite TTL"
 msgstr ""
 

@@ -523,6 +523,18 @@ msgstr "Адрес DNS сервера не может быть пустым"
 msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com"
 msgstr "Неверный формат DNS сервера. Примеры: 8.8.8.8 или dns.example.com"
 
+msgid "DNS bind interface"
+msgstr "Интерфейс привязки для DNS"
+
+msgid "Interface for access to DNS server"
+msgstr "Интерфейс для доступа к DNS серверу"
+
+msgid "Interface for DNS"
+msgstr "Интерфейс для DNS"
+
+msgid "Select the interface to access the DNS server"
+msgstr "Выберите интерфейс для доступа к DNS серверу"
+
 msgid "DNS Rewrite TTL"
 msgstr "Перезапись TTL для DNS"
 

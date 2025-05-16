@@ -731,9 +731,13 @@ sing_box_dns() {
     local dns_type
     local dns_server
     local resolver_tag="resolver"
+    local dns_bind_interface
+    local dns_interface
 
     config_get dns_type "main" "dns_type" "doh"
     config_get dns_server "main" "dns_server" "1.1.1.1"
+    config_get_bool dns_bind_interface "main" "dns_bind_interface" "0"
+    config_get dns_interface "main" "dns_interface"
     
     local server_json
     local is_ip=$(echo "$dns_server" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' && echo "1" || echo "0")
@@ -751,11 +755,18 @@ sing_box_dns() {
     
     log "Configure DNS in sing-box"
     
+    local detour="direct-out"
+    if [ "$dns_bind_interface" = "1" ] && [ -n "$dns_interface" ]; then
+        detour="dns-out"
+        log "Using custom DNS interface: $dns_interface"
+    fi
+    
     server_json=$(jq -n \
         --arg type "$dns_type" \
         --arg server "$dns_server" \
         --arg resolver "$resolver_tag" \
         --arg is_ip "$is_ip" \
+        --arg detour "$detour" \
         '{
             "servers": [
                 {
@@ -769,7 +780,7 @@ sing_box_dns() {
                             $server
                         end
                     ),
-                    "detour": "direct-out"
+                    "detour": $detour
                 } + (
                     if $is_ip == "0" then
                         {"address_resolver": $resolver}
@@ -803,6 +814,30 @@ sing_box_dns() {
             },
             "servers": $dns_config.servers
         }' $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+    
+    if [ "$dns_bind_interface" = "1" ] && [ -n "$dns_interface" ]; then
+        local dns_out_exists=$(jq '.outbounds[] | select(.tag == "dns-out") | .tag' $SING_BOX_CONFIG | wc -l)
+        
+        if [ "$dns_out_exists" = "0" ]; then
+            jq \
+                --arg interface "$dns_interface" \
+                '.outbounds = (.outbounds // []) + [{
+                    "tag": "dns-out",
+                    "type": "direct",
+                    "bind_interface": $interface
+                }]' $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+            log "Added DNS outbound with bind_interface: $dns_interface"
+        else
+            jq \
+                --arg interface "$dns_interface" \
+                '.outbounds = [.outbounds[] | if .tag == "dns-out" then {
+                    "tag": "dns-out",
+                    "type": "direct",
+                    "bind_interface": $interface
+                } else . end]' $SING_BOX_CONFIG > /tmp/sing-box-config-tmp.json && mv /tmp/sing-box-config-tmp.json $SING_BOX_CONFIG
+            log "Updated DNS outbound with bind_interface: $dns_interface"
+        fi
+    fi
 }
 
 sing_box_create_bypass_ruleset() {
