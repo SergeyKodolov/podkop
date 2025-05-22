@@ -70,6 +70,19 @@ function createAdditionalSection(mainSection, network) {
         return true;
     };
 
+    o = mainSection.taboption('additional', form.Flag, 'dns_bind_interface', _('DNS bind interface'), _('Interface for access to DNS server'));
+    o.default = '0';
+    o.rmempty = false;
+    o.ucisection = 'main';
+
+    o = mainSection.taboption('additional', widgets.DeviceSelect, 'dns_interface', _('Interface for DNS'), _('Select the interface to access the DNS server'));
+    o.ucisection = 'main';
+    o.depends('dns_bind_interface', '1');
+    o.noaliases = true;
+    o.nobridges = false;
+    o.noinactive = false;
+    o.multiple = false;
+
     o = mainSection.taboption('additional', form.Value, 'dns_rewrite_ttl', _('DNS Rewrite TTL'), _('Time in seconds for DNS record caching (default: 60)'));
     o.default = '60';
     o.rmempty = false;
