@@ -268,25 +268,6 @@ migration_rename_config_key() {
     fi
 }
 
-# Download URL content directly
-download_to_stream() {
-    local url="$1"
-    local http_proxy_address="$2"
-    local retries="${3:-3}"
-    local wait="${4:-2}"
-
-    for attempt in $(seq 1 "$retries"); do
-        if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" wget -qO- "$url" | sed 's/\r$//' && break
-        else
-            wget -qO- "$url" | sed 's/\r$//' && break
-        fi
-
-        log "Attempt $attempt/$retries to download $url failed" "warn"
-        sleep "$wait"
-    done
-}
-
 # Download URL to file
 download_to_file() {
     local url="$1"
@@ -305,10 +286,17 @@ download_to_file() {
         log "Attempt $attempt/$retries to download $url failed" "warn"
         sleep "$wait"
     done
+}
+
+# Converts Windows-style line endings (CRLF) to Unix-style (LF)
+convert_crlf_to_lf() {
+    local filepath="$1"
 
     if grep -q $'\r' "$filepath"; then
-        log "Downloaded file has Windows line endings (CRLF). Converting to Unix (LF)"
-        sed -i 's/\r$//' "$filepath"
+        log "File '$filepath' contains CRLF line endings. Converting to LF..." "debug"
+        local tmpfile
+        tmpfile=$(mktemp)
+        tr -d '\r' < "$filepath" > "$tmpfile" && mv "$tmpfile" "$filepath" || rm -f "$tmpfile"
     fi
 }
 
@@ -399,4 +387,18 @@ parse_domain_or_subnet_file_to_comma_string() {
     done < "$filepath"
 
     echo "$result"
+}
+
+# Extracts all ip_cidr entries from a JSON ruleset file and writes them to an output file.
+extract_ip_cidr_from_json_ruleset_to_file() {
+    local json_file="$1"
+    local output_file="$2"
+
+    if [ ! -f "$json_file" ]; then
+        log "JSON file not found: $json_file" "error"
+        return 1
+    fi
+
+    log "Extracting ip_cidr entries from $json_file to $output_file" "debug"
+    jq -r '.rules[].ip_cidr[]' "$json_file" > "$output_file"
 }
