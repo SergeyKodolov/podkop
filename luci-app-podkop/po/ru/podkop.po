@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
-# Copyright (C) 2025 THE PODKOP'S COPYRIGHT HOLDER
+# Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# divocat, 2025.
+# divocatt, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-27 13:15+0200\n"
-"PO-Revision-Date: 2025-10-27 13:15+0200\n"
-"Last-Translator: divocat\n"
+"POT-Creation-Date: 2026-05-29 16:40+0300\n"
+"PO-Revision-Date: 2026-05-29 16:40+0300\n"
+"Last-Translator: divocatt\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -35,6 +35,9 @@ msgstr "Активные соединения"
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
+msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
+msgstr "Обеспечивает доступ к YACD из WAN. Убедитесь, что в брандмауэре открыт соответствующий порт."
+
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
@@ -46,6 +49,9 @@ msgstr "Необходимо указать хотя бы одну действ�
 
 msgid "Available actions"
 msgstr "Доступные действия"
+
+msgid "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped"
+msgstr "Перед переключением на сервер через него скачивается 64 КиБ: сервер, который «замораживает» соединения после ~16 КБ, пропускается"
 
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
@@ -110,11 +116,17 @@ msgstr "Копировать"
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
 
+msgid "Custom URL"
+msgstr "Своя ссылка"
+
 msgid "Dashboard"
 msgstr "Дашборд"
 
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
+
+msgid "Default"
+msgstr "По умолчанию"
 
 msgid "Delay in milliseconds before reloading podkop after interface UP"
 msgstr "Задержка в миллисекундах перед перезагрузкой podkop после поднятия интерфейса"
@@ -176,6 +188,12 @@ msgstr "Входящий"
 msgid "Download"
 msgstr "Скачать"
 
+msgid "Download Check"
+msgstr "Проверка загрузки"
+
+msgid "Download Check URL"
+msgstr "Ссылка для проверки загрузки"
+
 msgid "Download Lists via Proxy/VPN"
 msgstr "Скачивать списки через Proxy/VPN"
 
@@ -194,6 +212,9 @@ msgstr "Включить автостарт"
 msgid "Enable built-in DNS resolver for domains handled by this section"
 msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
 
+msgid "Enable DNS resolve to get real IP when routing"
+msgstr "Разрешать домены в реальные IP-адреса перед маршрутизацией в outbound"
+
 msgid "Enable Mixed Proxy"
 msgstr "Включить смешанный прокси"
 
@@ -203,8 +224,14 @@ msgstr "Включить выходной сетевой интерфейс"
 msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
 msgstr "Включить смешанный прокси-сервер, разрешив этому разделу маршрутизировать трафик как через HTTP, так и через SOCKS-прокси."
 
+msgid "Enable uTLS-fallback"
+msgstr "Включить uTLS-fallback"
+
 msgid "Enable YACD"
 msgstr "Включить YACD"
+
+msgid "Enable YACD WAN Access"
+msgstr "Включить доступ YACD WAN"
 
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
@@ -242,6 +269,9 @@ msgstr "Не удалось скопировать!"
 msgid "Failed to execute!"
 msgstr "Не удалось выполнить!"
 
+msgid "Fallback URLs"
+msgstr "Резервные ссылки"
+
 msgid "Fastest"
 msgstr "Самый быстрый"
 
@@ -274,6 +304,45 @@ msgstr "Неверный домен"
 
 msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
 msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
+
+msgid "Invalid HY2 URL: insecure must be 0 or 1"
+msgstr "Неверный URL Hysteria2: параметр insecure должен быть 0 или 1"
+
+msgid "Invalid HY2 URL: invalid port number"
+msgstr "Неверный URL Hysteria2: неверный номер порта"
+
+msgid "Invalid HY2 URL: missing credentials/server"
+msgstr "Неверный URL Hysteria2: отсутствуют учетные данные/сервер"
+
+msgid "Invalid HY2 URL: missing host"
+msgstr "Неверный URL Hysteria2: отсутствует хост"
+
+msgid "Invalid HY2 URL: missing host & port"
+msgstr "Неверный URL Hysteria2: отсутствуют хост и порт"
+
+msgid "Invalid HY2 URL: missing password"
+msgstr "Неверный URL Hysteria2: отсутствует пароль"
+
+msgid "Invalid HY2 URL: missing port"
+msgstr "Неверный URL Hysteria2: отсутствует порт"
+
+msgid "Invalid HY2 URL: must not contain spaces"
+msgstr "Неверный URL Hysteria2: не должен содержать пробелов"
+
+msgid "Invalid HY2 URL: must start with hysteria2:// or hy2://"
+msgstr "Неверный URL Hysteria2: должен начинаться с hysteria2:// или hy2://"
+
+msgid "Invalid HY2 URL: obfs-password required when obfs is set"
+msgstr "Неверный URL Hysteria2: требуется obfs-password, когда установлен obfs"
+
+msgid "Invalid HY2 URL: parsing failed"
+msgstr "Неверный URL Hysteria2: ошибка разбора"
+
+msgid "Invalid HY2 URL: sni cannot be empty"
+msgstr "Неверный URL Hysteria2: sni не может быть пустым"
+
+msgid "Invalid HY2 URL: unsupported obfs type"
+msgstr "Неверный URL Hysteria2: неподдерживаемый тип obfs"
 
 msgid "Invalid IP address"
 msgstr "Неверный IP-адрес"
@@ -374,6 +443,9 @@ msgstr "Локальные списки доменов"
 msgid "Local Subnet Lists"
 msgstr "Локальные списки подсетей"
 
+msgid "Log Level"
+msgstr "Уровень логов"
+
 msgid "Main DNS"
 msgstr "Основной DNS"
 
@@ -461,6 +533,9 @@ msgstr "Внешние списки доменов"
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
 
+msgid "Resolve real IP for routing"
+msgstr "Разрешение реальных IP-адресов"
+
 msgid "Restart podkop"
 msgstr "Перезапустить Podkop"
 
@@ -496,6 +571,9 @@ msgstr "Запустить диагностику"
 
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
+
+msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
+msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
 
 msgid "Sections"
 msgstr "Секции"
@@ -536,6 +614,9 @@ msgstr "Выберите тип списка для добавления пол�
 msgid "Select the list type for adding custom subnets"
 msgstr "Выберите тип списка для добавления пользовательских подсетей"
 
+msgid "Select the log level for sing-box"
+msgstr "Выберите уровень логов для sing-box"
+
 msgid "Select the network interface from which the traffic will originate"
 msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
 
@@ -544,6 +625,12 @@ msgstr "Выберите сетевой интерфейс, на который 
 
 msgid "Select the WAN interfaces to be monitored"
 msgstr "Выберите WAN интерфейсы для мониторинга"
+
+msgid "Selector"
+msgstr "Selector"
+
+msgid "Selector Proxy Links"
+msgstr "Ссылки прокси для Selector"
 
 msgid "Services info"
 msgstr "Информация о сервисах"
@@ -617,9 +704,6 @@ msgstr "Тестирование задержки"
 msgid "Text List"
 msgstr "Текстовый список"
 
-msgid "Text List (comma/space/newline separated)"
-msgstr "Текстовый список (через запятую, пробел или новую строку)"
-
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
 
@@ -628,6 +712,9 @@ msgstr "Интервал между тестами подключения"
 
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
+
+msgid "The URL must serve at least 64 KiB or announce a shorter length"
+msgstr "Ссылка должна отдавать не меньше 64 КиБ или сообщать меньшую длину"
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
@@ -665,8 +752,8 @@ msgstr "Неизвестная ошибка"
 msgid "Uplink"
 msgstr "Исходящий"
 
-msgid "URL must start with vless://, ss://, trojan://, or socks4/5://"
-msgstr "URL должен начинаться с vless://, ss://, trojan:// или socks4/5://"
+msgid "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
+msgstr "URL должен начинаться с vless://, ss://, trojan://, socks4/5:// или hysteria2:// hy2://"
 
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"
@@ -681,10 +768,13 @@ msgid "URLTest Proxy Links"
 msgstr "Ссылки прокси для URLTest"
 
 msgid "URLTest Testing URL"
-msgstr "URL для тестирования URLTest"
+msgstr "URLTest ссылка для проверки"
 
 msgid "URLTest Tolerance"
-msgstr "Порог переключения URLTest"
+msgstr "URLTest допустимое отклонение"
+
+msgid "Used in this order only while none of the URLTest proxy links responds"
+msgstr "Используются по порядку, только пока не отвечает ни одна из основных ссылок URLTest"
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"
@@ -716,11 +806,20 @@ msgstr "Посмотреть логи"
 msgid "Visit Wiki"
 msgstr "Перейти в wiki"
 
+msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
+msgstr ""
+
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
+
+msgid "When a server does not answer the TLS ClientHello sent with the uTLS fingerprint of a link, the connection is tried with other fingerprints"
+msgstr "Если сервер не отвечает на TLS ClientHello с отпечатком uTLS из ссылки, соединение пробуется с другими отпечатками"
+
+msgid "YACD Secret Key"
+msgstr "Секретный ключ YACD"
 
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr "Вы можете выбрать выходной сетевой интерфейс, по умолчанию он определяется автоматически."

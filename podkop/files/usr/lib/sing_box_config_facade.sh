@@ -61,10 +61,24 @@ sing_box_cf_add_proxy_outbound() {
     local url="$3"
     local udp_over_tcp="$4"
 
+    # A link with the xhttp transport is decoded by sing-box itself, before any
+    # decoding here: its "extra" parameter is URL-encoded JSON
+    case "$(url_get_scheme "$url")" in
+    vless | trojan)
+        case "$(url_get_query_param "$(url_strip_fragment "$url")" "type")" in
+        xhttp | splithttp)
+            _add_decoded_proxy_outbound "$config" "$section" "$url"
+            return
+            ;;
+        esac
+        ;;
+    esac
+
     url=$(url_decode "$url")
     url=$(url_strip_fragment "$url")
 
-    local scheme="${url%%://*}"
+    local scheme
+    scheme="$(url_get_scheme "$url")"
     case "$scheme" in
     socks4 | socks4a | socks5)
         local tag host port version userinfo username password udp_over_tcp
@@ -146,6 +160,21 @@ sing_box_cf_add_proxy_outbound() {
         config=$(_add_outbound_security "$config" "$tag" "$url")
         config=$(_add_outbound_transport "$config" "$tag" "$url")
         ;;
+    hysteria2 | hy2)
+        local tag host port password obfuscator_type obfuscator_password upload_mbps download_mbps
+        tag=$(get_outbound_tag_by_section "$section")
+        host=$(url_get_host "$url")
+        port="$(url_get_port "$url")"
+        password=$(url_get_userinfo "$url")
+        obfuscator_type=$(url_get_query_param "$url" "obfs")
+        obfuscator_password=$(url_get_query_param "$url" "obfs-password")
+        upload_mbps=$(url_get_query_param "$url" "upmbps")
+        download_mbps=$(url_get_query_param "$url" "downmbps")
+
+        config=$(sing_box_cm_add_hysteria2_outbound "$config" "$tag" "$host" "$port" "$password" "$obfuscator_type" \
+            "$obfuscator_password" "$upload_mbps" "$download_mbps")
+        config=$(_add_outbound_security "$config" "$tag" "$url")
+        ;;
     *)
         log "Unsupported proxy $scheme type. Aborted." "fatal"
         exit 1
@@ -155,22 +184,73 @@ sing_box_cf_add_proxy_outbound() {
     echo "$config"
 }
 
+#######################################
+# Add a proxy outbound decoded from the link by "sing-box tools decode-link".
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   section: string, the section the outbound tag is derived from
+#   url: string, the link as written in the configuration (not URL-decoded)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+#######################################
+_add_decoded_proxy_outbound() {
+    local config="$1"
+    local section="$2"
+    local url="$3"
+
+    if ! sing_box_has_feature "tools.decode-link"; then
+        log "The xhttp transport is not supported by the installed sing-box (podkop-engine r11 or later is required). Aborted." "fatal"
+        exit 1
+    fi
+
+    local tag outbound status messages message
+    tag=$(get_outbound_tag_by_section "$section")
+    messages="/tmp/podkop-decode-link.$$"
+    outbound=$(sing-box tools decode-link --compact "$url" 2> "$messages")
+    status=$?
+
+    if [ "$status" -ne 0 ]; then
+        log "Cannot use the proxy link of $section: $(head -n 1 "$messages"). Aborted." "fatal"
+        rm -f "$messages"
+        exit 1
+    fi
+
+    while read -r message; do
+        [ -n "$message" ] && log "Proxy link of $section: $message" "warn"
+    done < "$messages"
+    rm -f "$messages"
+
+    sing_box_cm_add_raw_outbound "$config" "$tag" "$outbound"
+}
+
 _add_outbound_security() {
     local config="$1"
     local outbound_tag="$2"
     local url="$3"
 
-    local security
+    local security scheme
     security=$(url_get_query_param "$url" "security")
+    scheme="$(url_get_scheme "$url")"
+
+    if [ -z "$security" ]; then
+        if [ "$scheme" = "hysteria2" ] || [ "$scheme" = "hy2" ]; then
+            security="tls"
+        fi
+    fi
+
     case "$security" in
     tls | reality)
         local sni insecure alpn fingerprint public_key short_id
         sni=$(url_get_query_param "$url" "sni")
-        insecure=$(url_get_query_param "$url" "allowInsecure")
+        insecure=$(_get_insecure_query_param_from_url "$url")
         alpn=$(comma_string_to_json_array "$(url_get_query_param "$url" "alpn")")
         fingerprint=$(url_get_query_param "$url" "fp")
         public_key=$(url_get_query_param "$url" "pbk")
         short_id=$(url_get_query_param "$url" "sid")
+
+        if [ "$scheme" = "hysteria2" ] || [ "$scheme" = "hy2" ]; then
+                fingerprint=""
+        fi
 
         config=$(
             sing_box_cm_set_tls_for_outbound \
@@ -191,6 +271,18 @@ _add_outbound_security() {
     esac
 
     echo "$config"
+}
+
+_get_insecure_query_param_from_url() {
+    local url="$1"
+
+    local insecure
+    insecure=$(url_get_query_param "$url" "allowInsecure")
+    if [ -z "$insecure" ]; then
+        insecure=$(url_get_query_param "$url" "insecure")
+    fi
+
+    echo "$insecure"
 }
 
 _add_outbound_transport() {
@@ -214,7 +306,12 @@ _add_outbound_transport() {
         ;;
     grpc)
         # TODO(ampetelin): Add handling of optional gRPC parameters; example links are needed.
-        config=$(sing_box_cm_set_grpc_transport_for_outbound "$config" "$outbound_tag")
+        local grpc_service_name
+        grpc_service_name=$(url_get_query_param "$url" "serviceName")
+
+        config=$(
+            sing_box_cm_set_grpc_transport_for_outbound "$config" "$outbound_tag" "$grpc_service_name"
+        )
         ;;
     *)
         log "Unknown transport '$transport' detected." "error"

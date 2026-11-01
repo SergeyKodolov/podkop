@@ -105,37 +105,6 @@ get_domain_resolver_tag() {
     echo "$section-$postfix"
 }
 
-# Constructs and returns a ruleset tag using section, name, optional type, and a fixed postfix
-get_ruleset_tag() {
-    local section="$1"
-    local name="$2"
-    local type="$3"
-    local postfix="ruleset"
-
-    if [ -n "$type" ]; then
-        echo "$section-$name-$type-$postfix"
-    else
-        echo "$section-$name-$postfix"
-    fi
-}
-
-# Determines the ruleset format based on the file extension (json → source, srs → binary)
-get_ruleset_format_by_file_extension() {
-    local file_extension="$1"
-
-    local format
-    case "$file_extension" in
-    json) format="source" ;;
-    srs) format="binary" ;;
-    *)
-        log "Unsupported file extension: .$file_extension" "error"
-        return 1
-        ;;
-    esac
-
-    echo "$format"
-}
-
 # Converts a comma-separated string into a JSON array string
 comma_string_to_json_array() {
     local input="$1"
@@ -156,6 +125,29 @@ url_decode() {
     printf '%b' "$(echo "$encoded" | sed 's/+/ /g; s/%/\\x/g')"
 }
 
+# Prints the features the installed sing-box reports in the "Features:" line of
+# "sing-box version", comma-separated; nothing for a sing-box without that line
+sing_box_get_features() {
+    sing-box version 2> /dev/null | sed -n 's/^Features:[[:space:]]*//p'
+}
+
+# Checks if the installed sing-box reports the given feature
+sing_box_has_feature() {
+    local feature="$1"
+
+    case ",$(sing_box_get_features)," in
+    *",$feature,"*) return 0 ;;
+    esac
+
+    return 1
+}
+
+# Returns the scheme (protocol) part of a URL
+url_get_scheme() {
+    local url="$1"
+    echo "${url%%://*}"
+}
+
 # Extracts the userinfo (username[:password]) part from a URL
 url_get_userinfo() {
     local url="$1"
@@ -165,13 +157,23 @@ url_get_userinfo() {
 # Extracts the host part from a URL
 url_get_host() {
     local url="$1"
-    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e 's#^[^/]*@##' -e 's#\([:/].*\|$\)##p'
+
+    url="${url#*://}"
+    url="${url#*@}"
+    url="${url%%[/?#]*}"
+
+    echo "${url%%:*}"
 }
 
 # Extracts the port number from a URL
 url_get_port() {
     local url="$1"
-    echo "$url" | sed -n -e 's#^[^:/?]*://##' -e 's#^[^/]*@##' -e 's#^[^/]*:\([0-9][0-9]*\).*#\1#p'
+
+    url="${url#*://}"
+    url="${url#*@}"
+    url="${url%%[/?#]*}"
+
+    [[ "$url" == *:* ]] && echo "${url#*:}" || echo ""
 }
 
 # Extracts the path from a URL (without query or fragment; returns "/" if empty)
@@ -300,25 +302,6 @@ convert_crlf_to_lf() {
     fi
 }
 
-# Decompiles a sing-box SRS binary file into a JSON ruleset file
-decompile_srs_file() {
-    local binary_filepath="$1"
-    local output_filepath="$2"
-
-    log "Decompiling $binary_filepath to $output_filepath" "debug"
-
-    if ! file_exists "$binary_filepath"; then
-        log "File $binary_filepath not found" "error"
-        return 1
-    fi
-
-    sing-box rule-set decompile "$binary_filepath" -o "$output_filepath"
-    if [[ $? -ne 0 ]]; then
-        log "Decompilation command failed for $binary_filepath" "error"
-        return 1
-    fi
-}
-
 #######################################
 # Parses a whitespace-separated string, validates items as either domains
 # or IPv4 addresses/subnets, and returns a comma-separated string of valid items.
@@ -387,18 +370,4 @@ parse_domain_or_subnet_file_to_comma_string() {
     done < "$filepath"
 
     echo "$result"
-}
-
-# Extracts all ip_cidr entries from a JSON ruleset file and writes them to an output file.
-extract_ip_cidr_from_json_ruleset_to_file() {
-    local json_file="$1"
-    local output_file="$2"
-
-    if [ ! -f "$json_file" ]; then
-        log "JSON file not found: $json_file" "error"
-        return 1
-    fi
-
-    log "Extracting ip_cidr entries from $json_file to $output_file" "debug"
-    jq -r '.rules[].ip_cidr[]' "$json_file" > "$output_file"
 }

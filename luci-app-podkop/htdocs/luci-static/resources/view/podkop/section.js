@@ -5,7 +5,7 @@
 "require tools.widgets as widgets";
 "require view.podkop.main as main";
 
-function createSectionContent(section) {
+function createSectionContent(section, singBoxFeatures = []) {
   let o = section.option(
     form.ListValue,
     "connection_type",
@@ -15,6 +15,7 @@ function createSectionContent(section) {
   o.value("proxy", "Proxy");
   o.value("vpn", "VPN");
   o.value("block", "Block");
+  o.value("exclusion", "Exclusion");
 
   o = section.option(
     form.ListValue,
@@ -23,8 +24,9 @@ function createSectionContent(section) {
     _("Select how to configure the proxy"),
   );
   o.value("url", _("Connection URL"));
-  o.value("outbound", _("Outbound Config"));
+  o.value("selector", _("Selector"));
   o.value("urltest", _("URLTest"));
+  o.value("outbound", _("Outbound Config"));
   o.default = "url";
   o.depends("connection_type", "proxy");
 
@@ -32,7 +34,7 @@ function createSectionContent(section) {
     form.TextValue,
     "proxy_string",
     _("Proxy Configuration URL"),
-    "",
+    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
   );
   o.depends("proxy_config_type", "url");
   o.rows = 5;
@@ -42,7 +44,6 @@ function createSectionContent(section) {
   o.textarea = true;
   o.rmempty = false;
   o.sectionDescriptions = new Map();
-  o.placeholder = "vless://uuid@server:port?type=tcp&security=tls#main";
   o.validate = function (section_id, value) {
     // Optional
     if (!value || value.length === 0) {
@@ -83,11 +84,11 @@ function createSectionContent(section) {
 
   o = section.option(
     form.DynamicList,
-    "urltest_proxy_links",
-    _("URLTest Proxy Links"),
+    "selector_proxy_links",
+    _("Selector Proxy Links"),
+    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
   );
-  o.depends("proxy_config_type", "urltest");
-  o.placeholder = "vless://, ss://, trojan://, socks4/5:// links";
+  o.depends("proxy_config_type", "selector");
   o.rmempty = false;
   o.validate = function (section_id, value) {
     // Optional
@@ -103,6 +104,53 @@ function createSectionContent(section) {
 
     return validation.message;
   };
+
+  o = section.option(
+    form.DynamicList,
+    "urltest_proxy_links",
+    _("URLTest Proxy Links"),
+    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
+  );
+  o.depends("proxy_config_type", "urltest");
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    // Optional
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateProxyUrl(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  if (singBoxFeatures.includes("urltest.fallbacks")) {
+    o = section.option(
+      form.DynamicList,
+      "urltest_fallback_links",
+      _("Fallback URLs"),
+      _("Used in this order only while none of the URLTest proxy links responds")
+    );
+    o.depends("proxy_config_type", "urltest");
+    o.validate = function (section_id, value) {
+      // Optional
+      if (!value || value.length === 0) {
+        return true;
+      }
+
+      const validation = main.validateProxyUrl(value);
+
+      if (validation.valid) {
+        return true;
+      }
+
+      return validation.message;
+    };
+  }
 
   o = section.option(
     form.ListValue,
@@ -167,6 +215,47 @@ function createSectionContent(section) {
 
     return validation.message;
   };
+
+  if (singBoxFeatures.includes("urltest.download_url")) {
+    o = section.option(
+      form.ListValue,
+      "urltest_download_check",
+      _("Download Check"),
+      _("Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped")
+    );
+    o.value("default", _("Default"));
+    o.value("off", _("Disabled"));
+    o.value("custom", _("Custom URL"));
+    o.default = "default";
+    o.depends("proxy_config_type", "urltest");
+
+    o = section.option(
+      form.Value,
+      "urltest_download_url",
+      _("Download Check URL"),
+      _("The URL must serve at least 64 KiB or announce a shorter length")
+    );
+    Object.entries(main.URLTEST_DOWNLOAD_URL_OPTIONS).forEach(([key, label]) => {
+      o.value(key, _(label));
+    });
+    o.default = "https://speed.cloudflare.com/__down?bytes=65536";
+    o.rmempty = false;
+    o.depends({ proxy_config_type: "urltest", urltest_download_check: "custom" });
+
+    o.validate = function (section_id, value) {
+      if (!value || value.length === 0) {
+        return true;
+      }
+
+      const validation = main.validateUrl(value);
+
+      if (validation.valid) {
+        return true;
+      }
+
+      return validation.message;
+    };
+  }
 
   o = section.option(
     form.Flag,
@@ -445,7 +534,7 @@ function createSectionContent(section) {
   );
   o.value("disabled", _("Disabled"));
   o.value("dynamic", _("Dynamic List"));
-  o.value("text", _("Text List (comma/space/newline separated)"));
+  o.value("text", _("Text List"));
   o.default = "disabled";
   o.rmempty = false;
 
@@ -618,6 +707,8 @@ function createSectionContent(section) {
   );
   o.placeholder = "192.168.1.2 or 192.168.1.0/24";
   o.rmempty = true;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
   o.validate = function (section_id, value) {
     // Optional
     if (!value || value.length === 0) {
@@ -643,6 +734,8 @@ function createSectionContent(section) {
   );
   o.default = "0";
   o.rmempty = false;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
 
   o = section.option(
     form.Value,
@@ -655,6 +748,17 @@ function createSectionContent(section) {
   );
   o.rmempty = false;
   o.depends("mixed_proxy_enabled", "1");
+
+  o = section.option(
+    form.Flag,
+    "resolve_real_ip_for_routing",
+    _("Resolve real IP for routing"),
+    _("Enable DNS resolve to get real IP when routing"),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends("connection_type", "proxy");
+  o.depends("connection_type", "vpn");
 }
 
 const EntryPoint = {

@@ -448,6 +448,97 @@ function validateSocksUrl(url) {
   return { valid: true, message: _("Valid") };
 }
 
+// src/validators/validateHysteriaUrl.ts
+function validateHysteria2Url(url) {
+  try {
+    const isHY2 = url.startsWith("hysteria2://");
+    const isHY2Short = url.startsWith("hy2://");
+    if (!isHY2 && !isHY2Short)
+      return {
+        valid: false,
+        message: _("Invalid HY2 URL: must start with hysteria2:// or hy2://")
+      };
+    if (/\s/.test(url))
+      return {
+        valid: false,
+        message: _("Invalid HY2 URL: must not contain spaces")
+      };
+    const prefix = isHY2 ? "hysteria2://" : "hy2://";
+    const body = url.slice(prefix.length);
+    const [mainPart] = body.split("#");
+    const [authHostPort, queryString] = mainPart.split("?");
+    if (!authHostPort)
+      return {
+        valid: false,
+        message: _("Invalid HY2 URL: missing credentials/server")
+      };
+    const [passwordPart, hostPortPart] = authHostPort.split("@");
+    if (!passwordPart)
+      return { valid: false, message: _("Invalid HY2 URL: missing password") };
+    if (!hostPortPart)
+      return {
+        valid: false,
+        message: _("Invalid HY2 URL: missing host & port")
+      };
+    const [host, port] = hostPortPart.split(":");
+    if (!host)
+      return { valid: false, message: _("Invalid HY2 URL: missing host") };
+    if (!port)
+      return { valid: false, message: _("Invalid HY2 URL: missing port") };
+    const cleanedPort = port.replace("/", "");
+    const portEntries = cleanedPort.split(",");
+    const isValidPortNumber = (value) => {
+      if (!/^\d+$/.test(value)) return false;
+      const num = Number(value);
+      return num >= 1 && num <= 65535;
+    };
+    const isValidPortEntry = (entry) => {
+      if (!entry) return false;
+      if (!entry.includes("-")) return isValidPortNumber(entry);
+      const rangeParts = entry.split("-");
+      if (rangeParts.length !== 2) return false;
+      const [start, end] = rangeParts;
+      if (!isValidPortNumber(start) || !isValidPortNumber(end)) return false;
+      return Number(start) <= Number(end);
+    };
+    if (!portEntries.every(isValidPortEntry))
+      return {
+        valid: false,
+        message: _("Invalid HY2 URL: invalid port number")
+      };
+    if (queryString) {
+      const params = parseQueryString(queryString);
+      const paramsKeys = Object.keys(params);
+      if (paramsKeys.includes("insecure") && !["0", "1"].includes(params.insecure))
+        return {
+          valid: false,
+          message: _("Invalid HY2 URL: insecure must be 0 or 1")
+        };
+      const validObfsTypes = ["none", "salamander"];
+      if (paramsKeys.includes("obfs") && !validObfsTypes.includes(params.obfs))
+        return {
+          valid: false,
+          message: _("Invalid HY2 URL: unsupported obfs type")
+        };
+      if (paramsKeys.includes("obfs") && params.obfs !== "none" && !params["obfs-password"])
+        return {
+          valid: false,
+          message: _(
+            "Invalid HY2 URL: obfs-password required when obfs is set"
+          )
+        };
+      if (paramsKeys.includes("sni") && !params.sni)
+        return {
+          valid: false,
+          message: _("Invalid HY2 URL: sni cannot be empty")
+        };
+    }
+    return { valid: true, message: _("Valid") };
+  } catch (_e) {
+    return { valid: false, message: _("Invalid HY2 URL: parsing failed") };
+  }
+}
+
 // src/validators/validateProxyUrl.ts
 function validateProxyUrl(url) {
   const trimmedUrl = url.trim();
@@ -463,10 +554,13 @@ function validateProxyUrl(url) {
   if (/^socks(4|4a|5):\/\//.test(trimmedUrl)) {
     return validateSocksUrl(trimmedUrl);
   }
+  if (trimmedUrl.startsWith("hysteria2://") || trimmedUrl.startsWith("hy2://")) {
+    return validateHysteria2Url(trimmedUrl);
+  }
   return {
     valid: false,
     message: _(
-      "URL must start with vless://, ss://, trojan://, or socks4/5://"
+      "URL must start with vless://, ss://, trojan://, socks4/5://, or hysteria2://hy2://"
     )
   };
 }
@@ -528,6 +622,7 @@ var Podkop;
     AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
     AvailableMethods2["CHECK_LOGS"] = "check_logs";
     AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
+    AvailableMethods2["GET_SING_BOX_FEATURES"] = "get_sing_box_features";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
   ((AvailableClashAPIMethods2) => {
@@ -602,7 +697,8 @@ var PodkopShellMethods = {
   checkLogs: async () => callBaseMethod(Podkop.AvailableMethods.CHECK_LOGS),
   getSystemInfo: async () => callBaseMethod(
     Podkop.AvailableMethods.GET_SYSTEM_INFO
-  )
+  ),
+  getSingBoxFeatures: async () => callBaseMethod(Podkop.AvailableMethods.GET_SING_BOX_FEATURES)
 };
 
 // src/podkop/methods/custom/getDashboardSections.ts
@@ -622,7 +718,7 @@ async function getDashboardSections() {
     })
   );
   const data = configSections.filter(
-    (section) => section.connection_type !== "block" && section[".type"] !== "settings"
+    (section) => section.connection_type !== "block" && section.connection_type !== "exclusion" && section[".type"] !== "settings"
   ).map((section) => {
     if (section.connection_type === "proxy") {
       if (section.proxy_config_type === "url") {
@@ -668,6 +764,30 @@ async function getDashboardSections() {
           ]
         };
       }
+      if (section.proxy_config_type === "selector") {
+        const selector = proxies.find(
+          (proxy) => proxy.code === `${section[".name"]}-out`
+        );
+        const links = section.selector_proxy_links ?? [];
+        const outbounds = links.map((link, index) => ({
+          link,
+          outbound: proxies.find(
+            (item) => item.code === `${section[".name"]}-${index + 1}-out`
+          )
+        })).map((item) => ({
+          code: item?.outbound?.code || "",
+          displayName: getProxyUrlName(item.link) || item?.outbound?.value?.name || "",
+          latency: item?.outbound?.value?.history?.[0]?.delay || 0,
+          type: item?.outbound?.value?.type || "",
+          selected: selector?.value?.now === item?.outbound?.code
+        }));
+        return {
+          withTagSelect: true,
+          code: selector?.code || section[".name"],
+          displayName: section[".name"],
+          outbounds
+        };
+      }
       if (section.proxy_config_type === "urltest") {
         const selector = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`
@@ -675,9 +795,13 @@ async function getDashboardSections() {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-urltest-out`
         );
+        const links = [
+          ...section.urltest_proxy_links ?? [],
+          ...section.urltest_fallback_links ?? []
+        ];
         const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
           code: item?.code || "",
-          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
+          displayName: getProxyUrlName(links[index]) || item?.value?.name || "",
           latency: item?.value?.history?.[0]?.delay || 0,
           type: item?.value?.type || "",
           selected: selector?.value?.now === item?.code
@@ -731,10 +855,25 @@ async function getDashboardSections() {
   };
 }
 
+// src/podkop/methods/custom/getClashApiSecret.ts
+async function getClashApiSecret() {
+  const sections = await getConfigSections();
+  const settings = sections.find((section) => section[".type"] === "settings");
+  return settings?.yacd_secret_key || "";
+}
+
+// src/podkop/methods/custom/getSingBoxFeatures.ts
+async function getSingBoxFeatures() {
+  const { data, success } = await PodkopShellMethods.getSingBoxFeatures();
+  return success && Array.isArray(data) ? data : [];
+}
+
 // src/podkop/methods/custom/index.ts
 var CustomPodkopMethods = {
   getConfigSections,
-  getDashboardSections
+  getDashboardSections,
+  getClashApiSecret,
+  getSingBoxFeatures
 };
 
 // src/constants.ts
@@ -763,6 +902,7 @@ var ALLOWED_WITH_RUSSIA_INSIDE = [
   "hetzner",
   "ovh",
   "hodca",
+  "roblox",
   "digitalocean",
   "cloudfront"
 ];
@@ -786,6 +926,7 @@ var DOMAIN_LIST_OPTIONS = {
   google_ai: "Google AI",
   google_play: "Google Play",
   hodca: "H.O.D.C.A",
+  roblox: "Roblox",
   hetzner: "Hetzner ASN",
   ovh: "OVH ASN",
   digitalocean: "Digital Ocean ASN",
@@ -805,6 +946,12 @@ var DNS_SERVER_OPTIONS = {
   "dns.adguard-dns.com": "dns.adguard-dns.com (AdGuard Default)",
   "unfiltered.adguard-dns.com": "unfiltered.adguard-dns.com (AdGuard Unfiltered)",
   "family.adguard-dns.com": "family.adguard-dns.com (AdGuard Family)"
+};
+var URLTEST_DOWNLOAD_URL_OPTIONS = {
+  "https://speed.cloudflare.com/__down?bytes=65536": "https://speed.cloudflare.com/__down?bytes=65536 (Cloudflare)",
+  "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js": "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js (Google)",
+  "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js": "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js (jsDelivr)",
+  "https://cachefly.cachefly.net/1mb.test": "https://cachefly.cachefly.net/1mb.test (CacheFly)"
 };
 var BOOTSTRAP_DNS_SERVER_OPTIONS = {
   "77.88.8.8": "77.88.8.8 (Yandex DNS)",
@@ -1876,8 +2023,9 @@ async function fetchDashboardSections() {
   });
 }
 async function connectToClashSockets() {
+  const clashApiSecret = await getClashApiSecret();
   socket.subscribe(
-    `${getClashWsUrl()}/traffic?token=`,
+    `${getClashWsUrl()}/traffic?token=${clashApiSecret}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
       store.set({
@@ -1904,7 +2052,7 @@ async function connectToClashSockets() {
     }
   );
   socket.subscribe(
-    `${getClashWsUrl()}/connections?token=`,
+    `${getClashWsUrl()}/connections?token=${clashApiSecret}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
       store.set({
@@ -3801,6 +3949,49 @@ async function runSectionsCheck() {
   }
 }
 
+// src/helpers/removeVersionPrefix.ts
+function removeVersionPrefix(version) {
+  return version.replace(/^v/, "");
+}
+
+// src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts
+function isUnknownVersion(version) {
+  return version === "unknown" || version === _("unknown");
+}
+function getPodkopVersionRow(diagnosticsSystemInfo) {
+  const loading = diagnosticsSystemInfo.loading;
+  const unknown = isUnknownVersion(diagnosticsSystemInfo.podkop_version);
+  const hasActualVersion = Boolean(diagnosticsSystemInfo.podkop_latest_version) && !isUnknownVersion(diagnosticsSystemInfo.podkop_latest_version);
+  const version = normalizeCompiledVersion(
+    diagnosticsSystemInfo.podkop_version
+  );
+  const isDevVersion = version === "dev";
+  if (loading || unknown || !hasActualVersion || isDevVersion) {
+    return {
+      key: "Podkop",
+      value: version
+    };
+  }
+  if (removeVersionPrefix(version) !== removeVersionPrefix(diagnosticsSystemInfo.podkop_latest_version)) {
+    return {
+      key: "Podkop",
+      value: version,
+      tag: {
+        label: _("Outdated"),
+        kind: "warning"
+      }
+    };
+  }
+  return {
+    key: "Podkop",
+    value: version,
+    tag: {
+      label: _("Latest"),
+      kind: "success"
+    }
+  };
+}
+
 // src/podkop/tabs/diagnostic/initController.ts
 async function fetchSystemInfo() {
   const systemInfo = await PodkopShellMethods.getSystemInfo();
@@ -4040,7 +4231,10 @@ async function handleShowSingBoxConfig() {
     if (showSingBoxConfig.success) {
       ui.showModal(
         _("Show sing-box config"),
-        renderModal(showSingBoxConfig.data, "show_sing_box_config")
+        renderModal(
+          JSON.stringify(showSingBoxConfig.data, null, 2),
+          "show_sing_box_config"
+        )
       );
     } else {
       logger.error(
@@ -4145,47 +4339,9 @@ function renderDiagnosticSystemInfoWidget() {
   logger.debug("[DIAGNOSTIC]", "renderDiagnosticSystemInfoWidget");
   const diagnosticsSystemInfo = store.get().diagnosticsSystemInfo;
   const container = document.getElementById("pdk_diagnostic-page-system-info");
-  function getPodkopVersionRow() {
-    const loading = diagnosticsSystemInfo.loading;
-    const unknown = diagnosticsSystemInfo.podkop_version === _("unknown");
-    const hasActualVersion = Boolean(diagnosticsSystemInfo.podkop_latest_version) && diagnosticsSystemInfo.podkop_latest_version !== "unknown";
-    const version = normalizeCompiledVersion(
-      diagnosticsSystemInfo.podkop_version
-    );
-    const isDevVersion = version === "dev";
-    if (loading || unknown || !hasActualVersion || isDevVersion) {
-      return {
-        key: "Podkop",
-        value: version
-      };
-    }
-    if (version !== `v${diagnosticsSystemInfo.podkop_latest_version}`) {
-      logger.debug(
-        "[DIAGNOSTIC]",
-        "diagnosticsSystemInfo",
-        diagnosticsSystemInfo
-      );
-      return {
-        key: "Podkop",
-        value: version,
-        tag: {
-          label: _("Outdated"),
-          kind: "warning"
-        }
-      };
-    }
-    return {
-      key: "Podkop",
-      value: version,
-      tag: {
-        label: _("Latest"),
-        kind: "success"
-      }
-    };
-  }
   const renderedSystemInfo = renderSystemInfo({
     items: [
-      getPodkopVersionRow(),
+      getPodkopVersionRow(diagnosticsSystemInfo),
       {
         key: "Luci App",
         value: normalizeCompiledVersion(PODKOP_LUCI_APP_VERSION)
@@ -4770,6 +4926,7 @@ return baseclass.extend({
   TabService,
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
+  URLTEST_DOWNLOAD_URL_OPTIONS,
   bulkValidate,
   coreService,
   executeShellCommand,
